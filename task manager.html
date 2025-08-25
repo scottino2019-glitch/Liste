@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Manager con Callback</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+        }
+        .input-section {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+        input, select, button {
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+        input {
+            flex: 1;
+            min-width: 200px;
+        }
+        select {
+            min-width: 120px;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background 0.3s;
+            min-width: 100px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        .tasks-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        .task-column {
+            background: #f9f9f9;
+            padding: 20px;
+            border-radius: 10px;
+            border: 2px solid #eee;
+        }
+        .task-column h3 {
+            text-align: center;
+            margin-bottom: 15px;
+            color: #555;
+        }
+        .task-item {
+            background: white;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border-left: 4px solid;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .alta { border-left-color: #ff4757; }
+        .media { border-left-color: #ffa502; }
+        .bassa { border-left-color: #2ed573; }
+        .task-actions {
+            display: flex;
+            gap: 5px;
+        }
+        .btn-completa {
+            background: #4CAF50;
+            padding: 5px 10px;
+            font-size: 12px;
+        }
+        .btn-elimina {
+            background: #ff4757;
+            padding: 5px 10px;
+            font-size: 12px;
+        }
+        .btn-modifica {
+            background: #3498db;
+            padding: 5px 10px;
+            font-size: 12px;
+        }
+        .completato {
+            opacity: 0.6;
+            text-decoration: line-through;
+        }
+        .stats {
+            margin-top: 30px;
+            text-align: center;
+            padding: 15px;
+            background: #e3f2fd;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>✅ Task Manager con Callback</h1>
+        
+        <div class="input-section">
+            <input type="text" id="taskInput" placeholder="Inserisci nuova task..." onkeypress="handleEnter(event)">
+            <select id="prioritySelect">
+                <option value="alta">Alta Priorità</option>
+                <option value="media" selected>Media Priorità</option>
+                <option value="bassa">Bassa Priorità</option>
+            </select>
+            <button onclick="addTaskWithCallback(handleAddTask)">Aggiungi Task</button>
+        </div>
+
+        <div class="tasks-container">
+            <div class="task-column">
+                <h3>📋 Task Attive</h3>
+                <div id="activeTasks"></div>
+            </div>
+            <div class="task-column">
+                <h3>✅ Completate</h3>
+                <div id="completedTasks"></div>
+            </div>
+        </div>
+
+        <div class="stats">
+            <h3>📊 Statistiche</h3>
+            <p>Task totali: <span id="totalTasks">0</span></p>
+            <p>Task completate: <span id="completedCount">0</span></p>
+            <p>Task attive: <span id="activeCount">0</span></p>
+        </div>
+    </div>
+
+    <script>
+        // Array per memorizzare le tasks
+        let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+        let taskIdCounter = parseInt(localStorage.getItem('taskIdCounter')) || 1;
+
+        // 🔄 CALLBACK PRINCIPALE per aggiungere task
+        function addTaskWithCallback(callback) {
+            const taskInput = document.getElementById('taskInput');
+            const prioritySelect = document.getElementById('prioritySelect');
+            
+            const taskText = taskInput.value.trim();
+            const priority = prioritySelect.value;
+            
+            if (taskText === '') {
+                alert('Inserisci il testo della task!');
+                return;
+            }
+
+            // Creazione oggetto task
+            const newTask = {
+                id: taskIdCounter++,
+                text: taskText,
+                priority: priority,
+                completed: false,
+                createdAt: new Date().toLocaleString()
+            };
+
+            // Esegui il callback passando la nuova task
+            callback(newTask);
+            
+            // Reset input
+            taskInput.value = '';
+            taskInput.focus();
+            
+            // Salva nel localStorage
+            saveToLocalStorage();
+        }
+
+        // ✅ CALLBACK: Gestione aggiunta task
+        function handleAddTask(newTask) {
+            tasks.push(newTask);
+            renderTasks();
+            updateStats();
+            showNotification(`Task aggiunta: "${newTask.text}"`, 'success');
+        }
+
+        // ✅ CALLBACK: Completa task
+        function completeTaskCallback(taskId, callback) {
+            const taskIndex = tasks.findIndex(task => task.id === taskId);
+            if (taskIndex !== -1) {
+                tasks[taskIndex].completed = !tasks[taskIndex].completed;
+                callback(tasks[taskIndex]);
+                saveToLocalStorage();
+                renderTasks();
+                updateStats();
+            }
+        }
+
+        // ✅ CALLBACK: Elimina task
+        function deleteTaskCallback(taskId, callback) {
+            const taskIndex = tasks.findIndex(task => task.id === taskId);
+            if (taskIndex !== -1) {
+                const deletedTask = tasks[taskIndex];
+                tasks.splice(taskIndex, 1);
+                callback(deletedTask);
+                saveToLocalStorage();
+                renderTasks();
+                updateStats();
+            }
+        }
+
+        // 🎯 FUNZIONI DI RENDER
+        function renderTasks() {
+            const activeContainer = document.getElementById('activeTasks');
+            const completedContainer = document.getElementById('completedTasks');
+            
+            activeContainer.innerHTML = '';
+            completedContainer.innerHTML = '';
+            
+            tasks.forEach(task => {
+                const taskElement = createTaskElement(task);
+                if (task.completed) {
+                    completedContainer.appendChild(taskElement);
+                } else {
+                    activeContainer.appendChild(taskElement);
+                }
+            });
+        }
+
+        function createTaskElement(task) {
+            const div = document.createElement('div');
+            div.className = `task-item ${task.priority} ${task.completed ? 'completato' : ''}`;
+            
+            div.innerHTML = `
+                <div>
+                    <strong>${task.text}</strong>
+                    <br>
+                    <small>Priorità: ${task.priority} • ${task.createdAt}</small>
+                </div>
+                <div class="task-actions">
+                    <button class="btn-completa" onclick="completeTaskCallback(${task.id}, handleTaskCompletion)">
+                        ${task.completed ? '❌' : '✅'}
+                    </button>
+                    <button class="btn-elimina" onclick="deleteTaskCallback(${task.id}, handleTaskDeletion)">
+                        🗑️
+                    </button>
+                </div>
+            `;
+            
+            return div;
+        }
+
+        // 🔔 CALLBACK per notifiche
+        function handleTaskCompletion(task) {
+            showNotification(`Task "${task.text}" ${task.completed ? 'completata' : 'riattivata'}!`, 
+                           task.completed ? 'success' : 'info');
+        }
+
+        function handleTaskDeletion(task) {
+            showNotification(`Task "${task.text}" eliminata!`, 'warning');
+        }
+
+        // 📊 FUNZIONI UTILITY
+        function updateStats() {
+            document.getElementById('totalTasks').textContent = tasks.length;
+            document.getElementById('completedCount').textContent = tasks.filter(t => t.completed).length;
+            document.getElementById('activeCount').textContent = tasks.filter(t => !t.completed).length;
+        }
+
+        function showNotification(message, type) {
+            // Simulazione di notifica (in un'app reale potresti usare Toast)
+            console.log(`${type.toUpperCase()}: ${message}`);
+            alert(`${type.toUpperCase()}: ${message}`);
+        }
+
+        function handleEnter(event) {
+            if (event.key === 'Enter') {
+                addTaskWithCallback(handleAddTask);
+            }
+        }
+
+        function saveToLocalStorage() {
+            localStorage.setItem('tasks', JSON.stringify(tasks));
+            localStorage.setItem('taskIdCounter', taskIdCounter.toString());
+        }
+
+        // 🚀 INIZIALIZZAZIONE
+        document.addEventListener('DOMContentLoaded', function() {
+            renderTasks();
+            updateStats();
+            console.log('App inizializzata con callback!');
+        });
+
+        // 🎯 ESERCIZI PER TE:
+        // 1. Aggiungi un callback per modificare le task esistenti
+        // 2. Implementa un filtro per priorità
+        // 3. Aggiungi animazioni quando le task vengono completate/eliminate
+        // 4. Crea una funzione di conferma per l'eliminazione
+    </script>
+</body>
+</html>
